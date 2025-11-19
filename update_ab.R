@@ -43,7 +43,7 @@ current_sheet <- read_sheet(sheet_url) |>
 # ---------------------------
 # Parameters you should set
 # ---------------------------
-form_link <- "https://forms.gle/T7cqxk5iQiKk93tZ6"   # <-- put your Google Form / Sheet link here
+form_link <- readLines(here::here("utils", "form_link.txt"), warn = FALSE)
 from_email <- "carsonslater7@gmail.com"              # <-- sender address
 smtp_creds_key <- "gmail_creds"                      # <-- your blastula creds_key name (set up via create_smtp_creds_file or creds_key)
 dry_run <- TRUE                                      # set FALSE to actually send
@@ -140,6 +140,11 @@ current_ab <- current_ab |>
 # ---------------------------
 preview_first <- compose_update_email(
   first_name = current_ab$first_name[1],
+  line1 = current_ab$street_address_line_1[1],
+  line2 = current_ab$street_address_line_2[1],
+  city = current_ab$city[1],
+  state = current_ab$state[1],
+  zip = current_ab$zip_code[1],
   form_link = form_link
 )
 preview_first   # in RStudio / notebook this will show the preview
@@ -152,6 +157,11 @@ send_list <- current_ab |>
   filter(!is.na(email_address) & str_detect(email_address, "@")) |>
   mutate(
     first_name = if_else(!is.na(first_name) & first_name != "", first_name, "Friend"),
+    street_address_line_1 = street_address_line_1,
+    street_address_line_2 = street_address_line_2,
+    city = city,
+    state = state,
+    zip = zip_code,
     sent_at = as.POSIXct(NA),
     status = NA_character_,
     note = NA_character_
@@ -181,23 +191,33 @@ if (dry_run) {
 
 } else {
 
-  # Load encrypted Gmail credentials
-  creds <- creds_file(smtp_cred_file)
-
   for (i in seq_len(nrow(send_list))) {
 
     row <- send_list[i, ]
     to_addr <- row$email_address
     first <- row$first_name
+    ln1 <- row$street_address_line_1
+    ln2 <- row$street_address_line_2
+    cty <- row$city
+    st <- row$state
+    z <- row$zip
 
-    email_obj <- compose_update_email(first, form_link)
+    email_obj <- compose_update_email(
+      first_name = first,
+      line1 = ln1,
+      line2 = ln2,
+      city = cty,
+      state = st,
+      zip = z,
+      form_link = form_link
+    )
 
     res <- tryCatch({
       smtp_send(
         email = email_obj,
         to = to_addr,
         from = from_email,
-        subject = "Want a Christmas Card? (Address update - only if you moved)",
+        subject = "Address update - only if you moved",
         credentials = creds_envvar(
           user = "carsonslater7@gmail.com",
           pass_envvar = "SMTP_PASSWORD",
@@ -232,5 +252,5 @@ message("Wrote snapshot: ", snapshot_file)
 
 # Test Email -------------------------------------------------------------
 
-source(here::here("helpers", "test_send.R"))
-test_send()
+# source(here::here("helpers", "test_send.R"))
+# test_send()

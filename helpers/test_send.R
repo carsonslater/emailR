@@ -16,15 +16,23 @@ test_send <- function(
   from = "carsonslater7@gmail.com",
   cred_file = "gmail_creds",
   first_name = "Carson",
+  line1 = "123 Main Street",
+  line2 = "Apt 4B",
+  city = "Austin",
+  state = "TX",
+  zip = "78701",
   form_link = "https://forms.gle/T7cqxk5iQiKk93tZ6"
 ) {
   library(blastula)
 
-  # message("Loading Gmail credentials...")
-
   message("Composing test email...")
   email_obj <- compose_update_email(
     first_name = first_name,
+    line1 = line1,
+    line2 = line2,
+    city = city,
+    state = state,
+    zip = zip,
     form_link = form_link
   )
 
@@ -41,8 +49,8 @@ test_send <- function(
           provider = "gmail"
         )
     )
-    message("SUCCESS: Test email sent.")
+    message("✓ SUCCESS: Test email sent.")
   }, error = function(e) {
-    message("ERROR: ", e$message)
+    message("✗ ERROR: ", e$message)
   })
 }

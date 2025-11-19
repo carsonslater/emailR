@@ -15,8 +15,8 @@ This project automates the workflow of collecting Google Form responses, maintai
 │   ├── load_latest_ab.R         # Function to load the most recent address book CSV
 │   └── test_send.R              # Function to send a test email to verify SMTP setup
 ├── update_ab.R                  # Main script: merges new responses and optionally sends emails
-└── utils                        # Utility files
-└── sheet_link.txt           # Stores the URL to your Google Sheet responses
+├── utils                        # Utility files
+└── sheet_link.txt               # Stores the URL to your Google Sheet responses
 
 ````
 
@@ -97,4 +97,5 @@ install.packages(c(
 ## **Author**
 
 Carson Slater
+
 Date Created: 11.18.2025

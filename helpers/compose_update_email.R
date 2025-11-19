@@ -18,7 +18,7 @@ compose_update_email <- function(first_name, form_link, from_name = "The Slaters
     body = md(glue("
 Howdy {first_name},
 
-I'm updating my address book and want to make sure I have the correct mailing address on file, in case I need to send you fun things like Christmas cards, letters, etc.
+The Slater family is updating our address book and we want to make sure we have the correct mailing address on file, in case we need to send you fun things like Christmas cards, letters, etc.
 
 If **you have moved within the last year**, would you please take a moment to update your information here?
 
@@ -29,6 +29,9 @@ If you haven't moved recently, no action is needed — thanks!
 Best,
 
 {from_name}
+
+---
+*Concerned this is a scam? It isn't! But feel free to text/call Carson at [+1 (480) 320-8898](tel:4803208898) to confirm.*
     "))
   )
 }

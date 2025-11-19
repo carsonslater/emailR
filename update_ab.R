@@ -36,6 +36,8 @@ current_sheet <- read_sheet(sheet_url) |>
   unnest(zip_code, keep_empty = TRUE) |>
   relocate(timestamp, .after = zip_code) |>
   rename(last_updated = timestamp) |>
+  rename(household_name = household_name_if_applicable_e_g_smith_family) |>
+  rename(state = state_two_letter_abbreviations_please) |>
   relocate(email_address, .after = last_name)
 
 # ---------------------------
@@ -47,21 +49,91 @@ smtp_creds_key <- "gmail_creds"                      # <-- your blastula creds_k
 dry_run <- TRUE                                      # set FALSE to actually send
 
 # ---------------------------
-# Loading the latest address book
+# Loading the most recent address book
 # ---------------------------
 source(here("helpers", "load_latest_ab.R"))
 source(here("helpers", "compose_update_email.R"))
 
 # Your existing file
-prior_ab <- load_latest_ab()
+prior_ab <- load_latest_ab(here::here("address_books")) |>
+  mutate(across(c(
+    first_name,
+    last_name,
+    street_address_line_1,
+    street_address_line_2,
+    city
+  ),
+  tools::toTitleCase))
 
 n_total <- nrow(prior_ab)
 if (n_total == 0) stop("Address book is empty!")
 
+# ---------------------------
+# Compile into the current address book
+# ---------------------------
 current_ab <- bind_rows(prior_ab, current_sheet) |>
   group_by(email_address) |>
   slice_max(order_by = last_updated, n = 1, with_ties = FALSE) |>
-  ungroup()
+  ungroup() |>
+  separate_wider_delim(
+    street_address_line_1,
+    delim = ",",
+    names = c("temp_line1", "temp_line2"),
+    too_few = "align_start"
+  ) |>
+  mutate(
+    extracted_line2 = str_extract(temp_line1, "(?i)(apt|unit|suite| ste|attn| msc|#)\\s*\\S+.*$"),
+    temp_line1 = str_trim(str_remove(temp_line1, "(?i)(apt|unit|suite| ste|attn| msc|#)\\s*\\S+.*$"))
+  ) |>
+  mutate(
+    street_address_line_2 = coalesce(
+      street_address_line_2,
+      temp_line2,
+      extracted_line2
+    ),
+    street_address_line_1 = temp_line1
+  ) |>
+  select(-temp_line1, -temp_line2, -extracted_line2) |>
+  mutate(
+    street_address_line_1 = str_trim(street_address_line_1),
+    street_address_line_2 = str_trim(street_address_line_2)
+  ) |>
+  relocate(street_address_line_1, .before = street_address_line_2) |>
+  relocate(household_name, .after = last_name)
+
+# Cleaning
+name_to_abb <- setNames(state.abb, toupper(state.name))
+
+# Common misspellings → correct abbreviations
+fixes <- c(
+  "GEORIGA"    = "GA",
+  "TENNESSSEE" = "TN",
+  "ILLINOID"   = "IL",
+  "CALIFORNIA" = "CA",
+  "COLORADO"   = "CO",   # fixes capitalization of full names
+  "ARIZONA"    = "AZ"    # if inconsistent
+)
+
+current_ab <- current_ab |>
+  mutate(
+    # Step 1: trim + uppercase
+    state = state |>
+      str_trim() |>
+      str_to_upper(),
+
+    # Step 2: convert full names → abbreviations
+    state = ifelse(
+      state %in% names(name_to_abb),
+      name_to_abb[state],
+      state
+    ),
+
+    # Step 3: fix common typos / alternate spellings
+    state = recode(state, !!!fixes),
+
+    # Step 4: replace anything invalid with NA
+    state = ifelse(state %in% state.abb, state, NA)
+  )
 
 # ---------------------------
 # Preview the first email (always run so you can inspect)
@@ -88,7 +160,7 @@ send_list <- current_ab |>
 
 # Logging path
 log_ts <- format(Sys.time(), "%Y%m%d_%H%M%S")
-log_file <- here(glue("send_log_{log_ts}.csv"))
+log_file <- here("send_logs", glue("send_log_{log_ts}.csv"))
 
 # ----------------------------------------------------------
 # 4. Dry-run / Real send
@@ -125,7 +197,7 @@ if (dry_run) {
         email = email_obj,
         to = to_addr,
         from = from_email,
-        subject = "Quick address update (only if you moved)",
+        subject = "Want a Christmas Card? (Address update - only if you moved)",
         credentials = creds_envvar(
           user = "carsonslater7@gmail.com",
           pass_envvar = "SMTP_PASSWORD",
@@ -152,7 +224,7 @@ if (dry_run) {
 # 5. Save snapshot of updated address book
 # ----------------------------------------------------------
 snapshot_ts <- format(Sys.Date(), "%Y%m%d")
-snapshot_file <- here(glue("{snapshot_ts}_address_book.csv"))
+snapshot_file <- here("address_books", glue("{snapshot_ts}_address_book.csv"))
 readr::write_csv(current_ab, snapshot_file)
 
 message("Wrote snapshot: ", snapshot_file)
@@ -160,5 +232,5 @@ message("Wrote snapshot: ", snapshot_file)
 
 # Test Email -------------------------------------------------------------
 
-# source(here::here("helpers", "test_send.R"))
-# test_send()
+source(here::here("helpers", "test_send.R"))
+test_send()

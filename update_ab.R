@@ -135,6 +135,21 @@ current_ab <- current_ab |>
     state = ifelse(state %in% state.abb, state, NA)
   )
 
+# Remove more duplicates
+current_ab <- current_ab |>
+  mutate(
+    first_name = str_to_upper(first_name),
+    last_name = str_to_upper(last_name)
+  ) |>
+  group_by(first_name, last_name) |>
+  arrange(desc(last_updated)) |>
+  slice_head(n = 1) |>
+  ungroup() |>
+  mutate(
+    first_name = str_to_title(first_name),
+    last_name = str_to_title(last_name)
+  )
+
 # ---------------------------
 # Preview the first email (always run so you can inspect)
 # ---------------------------
